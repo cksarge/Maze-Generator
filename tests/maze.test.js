@@ -187,3 +187,19 @@ test('walls around an enclosed hole do not count as the outside edge', () => {
   assert.ok(!g.isOuter(nearest), 'cell on the inner rim of the ring should not be outer');
   assert.ok(g.isOuter(g.cells[0]), 'top-most cell is on the outside');
 });
+
+test('SVG output splits walls into several paths so huge mazes still render', async () => {
+  const { mazeSVGParts } = await import('../js/render/svg.js');
+  const { BATCH } = await import('../js/render/walls.js');
+  const { assembleMaze } = await import('../js/generate.js');
+  const p = { cellType: 'square', outline: 'rect', w: 400, h: 400, algo: 'backtracker', difficulty: 5, seed: 'svg', placement: 'auto', openings: true };
+  const maze = assembleMaze(p, null, runGeneration(p));
+  const svg = mazeSVGParts(maze, { solution: true }).join('');
+  const paths = svg.split('<path d=').length - 1;
+  const segments = svg.split(/[ML]/).length;
+  assert.ok(paths >= 3, `expected several paths, got ${paths}`);
+  for (const chunk of svg.split('<path d=').slice(1)) {
+    assert.ok(chunk.split('M').length - 1 <= BATCH, 'each path stays under the batch size');
+  }
+  assert.ok(segments > BATCH);
+});

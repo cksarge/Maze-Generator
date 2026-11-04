@@ -1,5 +1,5 @@
 import { MazeView, renderMazeImage, readColors } from './render/canvas.js';
-import { mazeToSVG, PRINT_COLORS, svgViewBox } from './render/svg.js';
+import { mazeSVGParts, PRINT_COLORS, svgViewBox } from './render/svg.js';
 import { runGeneration, assembleMaze } from './generate.js';
 import { getAlgorithm } from './algorithms/index.js';
 import { randomSeed } from './rng.js';
@@ -396,8 +396,8 @@ function doDownload(kind) {
   if (kind.startsWith('svg')) {
     const vb = svgViewBox(maze.grid);
     const px = Math.min(20, 4000 / Math.max(vb.w, vb.h));
-    const svg = mazeToSVG(maze, { solution, background: '#ffffff', width: Math.round(vb.w * px), height: Math.round(vb.h * px) });
-    download(new Blob([svg], { type: 'image/svg+xml' }), `${name}.svg`);
+    const parts = mazeSVGParts(maze, { solution, background: '#ffffff', width: Math.round(vb.w * px), height: Math.round(vb.h * px) });
+    download(new Blob(parts, { type: 'image/svg+xml' }), `${name}.svg`);
   } else {
     const canvas = renderMazeImage(maze, { pxPerUnit: 24, maxPx: 8192, solution, colors: { ...PRINT_COLORS, bg: '#ffffff' } });
     canvas.toBlob((b) => (b ? download(b, `${name}.png`) : toast('That maze is too large to export as PNG. Try SVG instead.')), 'image/png');

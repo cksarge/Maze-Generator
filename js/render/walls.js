@@ -30,12 +30,22 @@ export function allCells(grid) {
   };
 }
 
+// Browsers silently draw nothing when a single canvas path or SVG <path> has too many
+// segments (around a million in Chrome), so long paths are drawn in batches of this size.
+export const BATCH = 50000;
+
 export function traceWalls(ctx, maze, each) {
+  let n = 0;
   ctx.beginPath();
   forEachWall(maze, each, (e) => {
     ctx.moveTo(e.x1, e.y1);
     if (e.arc) ctx.arc(e.cx, e.cy, e.r, e.a1, e.a2);
     else ctx.lineTo(e.x2, e.y2);
+    if (++n === BATCH) {
+      ctx.stroke();
+      ctx.beginPath();
+      n = 0;
+    }
   });
   ctx.stroke();
 }
@@ -44,7 +54,14 @@ export function tracePath(ctx, grid, path, len = path.length) {
   if (len < 1) return;
   ctx.beginPath();
   ctx.moveTo(grid.cx[path[0]], grid.cy[path[0]]);
-  for (let k = 1; k < len; k++) ctx.lineTo(grid.cx[path[k]], grid.cy[path[k]]);
+  for (let k = 1; k < len; k++) {
+    ctx.lineTo(grid.cx[path[k]], grid.cy[path[k]]);
+    if (k % BATCH === 0) {
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(grid.cx[path[k]], grid.cy[path[k]]);
+    }
+  }
   if (len === 1) ctx.lineTo(grid.cx[path[0]] + 0.001, grid.cy[path[0]]);
   ctx.stroke();
 }
