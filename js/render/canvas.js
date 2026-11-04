@@ -3,6 +3,9 @@ import { traceWalls, tracePath, allCells } from './walls.js';
 const BUCKET = 2; // world units per spatial-index bucket
 const OVERVIEW_THRESHOLD = 25000; // visible cells above which the cached overview is drawn
 const WALL = 0.12; // wall thickness as a fraction of a cell
+// Whole-maze images are drawn on a CPU-backed canvas: GPU-accelerated canvases come out
+// blank, with no error, once they've been sent a few tens of millions of segments.
+const WHOLE_MAZE_CANVAS = { willReadFrequently: true };
 
 export function readColors(el = document.documentElement) {
   const cs = getComputedStyle(el);
@@ -42,6 +45,11 @@ export class MazeView {
     this.onDragEnd = null;
 
     new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
+    // Chrome can reset canvases under heavy memory pressure; draw again when it gives them back.
+    canvas.addEventListener('contextrestored', () => {
+      this.overview = null;
+      this.requestDraw();
+    });
     this.resize();
     this._bindEvents();
   }
@@ -73,7 +81,9 @@ export class MazeView {
     this.canvas.height = Math.round(h * this.dpr);
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
-    if (!hadSize && this.maze) this.fit();
+    // Keep the maze fitted when the canvas changes size (e.g. the stats line below it wraps),
+    // unless the user has panned or zoomed.
+    if (this.maze && (!hadSize || this.fitted)) this.fit();
     this.requestDraw();
   }
 
@@ -88,6 +98,7 @@ export class MazeView {
     this.fitScale = this.scale;
     this.tx = (this.cssW - bw * this.scale) / 2 - (b.x0 - pad) * this.scale;
     this.ty = (this.cssH - bh * this.scale) / 2 - (b.y0 - pad) * this.scale;
+    this.fitted = true;
     this.requestDraw();
   }
 
@@ -99,6 +110,7 @@ export class MazeView {
     this.tx = sx - (sx - this.tx) * f;
     this.ty = sy - (sy - this.ty) * f;
     this.scale = next;
+    this.fitted = false;
     this.requestDraw();
   }
 
@@ -116,6 +128,7 @@ export class MazeView {
     const sy = g.cy[cell] * s + this.ty;
     const mx = Math.min(this.cssW * 0.25, 4 * s + 20);
     const my = Math.min(this.cssH * 0.25, 4 * s + 20);
+    this.fitted = false;
     if (sx < mx) this.tx += mx - sx;
     else if (sx > this.cssW - mx) this.tx -= sx - (this.cssW - mx);
     if (sy < my) this.ty += my - sy;
@@ -126,6 +139,7 @@ export class MazeView {
     const g = this.maze.grid;
     const target = Math.min(this.cssW, this.cssH) / cellsAcross;
     if (this.scale < target) this.scale = target;
+    this.fitted = false;
     this.tx = this.cssW / 2 - g.cx[cell] * this.scale;
     this.ty = this.cssH / 2 - g.cy[cell] * this.scale;
     this.requestDraw();
@@ -200,11 +214,13 @@ export class MazeView {
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.ceil(bw * res));
     canvas.height = Math.max(1, Math.ceil(bh * res));
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', WHOLE_MAZE_CANVAS);
     ctx.setTransform(res, 0, 0, res, -(b.x0 - pad) * res, -(b.y0 - pad) * res);
     ctx.strokeStyle = this.colors.wall;
     ctx.lineWidth = Math.max(WALL, 1 / res);
     ctx.lineCap = 'round';
+    // When there are more walls than pixels, faint lines read as texture instead of a solid blob.
+    ctx.globalAlpha = Math.min(1, Math.max(0.3, res * 0.5));
     traceWalls(ctx, this.maze, allCells(g));
     this.overview = { canvas, x: b.x0 - pad, y: b.y0 - pad, w: bw, h: bh };
     return this.overview;
@@ -321,6 +337,7 @@ export class MazeView {
       p.x = sx;
       p.y = sy;
       if (this.mode === 'pan') {
+        if (dx || dy) this.fitted = false;
         this.tx += dx;
         this.ty += dy;
         this.requestDraw();
@@ -329,6 +346,7 @@ export class MazeView {
         this.onDragMove?.(wx, wy);
       } else if (this.mode === 'pinch') {
         const next = this._pinchState();
+        this.fitted = false;
         this.tx += next.mx - this._pinch.mx;
         this.ty += next.my - this._pinch.my;
         if (this._pinch.d > 0) this.zoomAt(next.d / this._pinch.d, next.mx, next.my);
@@ -375,7 +393,7 @@ export function renderMazeImage(maze, { pxPerUnit = 16, maxPx = 8192, solution =
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.ceil(bw * res));
   canvas.height = Math.max(1, Math.ceil(bh * res));
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', WHOLE_MAZE_CANVAS);
   if (background) {
     ctx.fillStyle = colors.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
