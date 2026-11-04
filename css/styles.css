@@ -403,6 +403,41 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 
 #print-root { display: none; }
 
+/* Challenge mode (?share=true): play only, no settings, stats or solution tools */
+body:not(.challenge) .challenge-only { display: none !important; }
+.challenge .normal-only,
+.challenge .panel,
+.challenge #stats,
+.challenge #view-tools,
+.challenge #exit-play-btn,
+.challenge #play-tools .check,
+.challenge #fog-radius-wrap { display: none !important; }
+.challenge .layout { grid-template-columns: 1fr; }
+.challenge .canvas-wrap { flex: 1; height: auto; }
+.no-giveup #giveup-btn { display: none !important; }
+.share-menu { min-width: 300px; max-width: 340px; }
+.share-menu button small { display: block; color: var(--muted); font-size: 0.78rem; margin-top: 1px; }
+.menu-check { margin: 4px 0 0; padding: 8px 10px 6px; border-top: 1px solid var(--border); font-size: 0.84rem; }
+.challenge-badge {
+  margin-right: auto; margin-left: 12px;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.challenge-start { background: var(--maze-bg); z-index: 5; }
+.challenge-card {
+  max-width: 420px; margin: 16px; padding: 24px;
+  text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.challenge-card h2 { margin: 0 0 8px; font-size: 1.35rem; }
+.challenge-card p { margin: 0 0 10px; }
+.challenge-card .dot { display: inline-block; width: 10px; height: 10px; vertical-align: baseline; }
+.challenge-card .dot.start { background: var(--maze-start); border-radius: 50%; }
+.challenge-card .dot.end { background: var(--maze-end); }
+.btn.big { font-size: 1.05rem; padding: 10px 28px; margin-top: 6px; }
+
 /* Responsive: stack the panel above the maze on narrow screens */
 @media (max-width: 860px) {
   body { height: auto; }
@@ -410,6 +445,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
   .panel { border-right: 0; border-top: 1px solid var(--border); overflow: visible; padding: 4px 16px 16px; }
   .stage { padding: 10px; }
   .canvas-wrap { flex: none; height: 68vh; min-height: 280px; }
+  .challenge .canvas-wrap { height: calc(100vh - 140px); }
+  .share-menu { position: fixed; left: 16px; right: 16px; top: auto; min-width: 0; max-width: none; }
   .print-grid { grid-template-columns: 1fr; }
   .generate-bar { position: static; }
   .toolbar { gap: 6px; }

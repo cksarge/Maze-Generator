@@ -33,8 +33,10 @@ export class Game {
     };
   }
 
-  start(maze, { fog = false, fogRadius = 5 } = {}) {
+  // timerOnStart starts the clock immediately (challenge mode) instead of on the first move.
+  start(maze, { fog = false, fogRadius = 5, timerOnStart = false } = {}) {
     this.maze = maze;
+    this.timerOnStart = timerOnStart;
     this.active = true;
     this.fogOn = fog;
     this.fogRadius = fogRadius;
@@ -61,8 +63,9 @@ export class Game {
     view.fog = this.fogOn ? { radius: this.fogRadius } : null;
     // Zoom in on the player when the whole maze would be too small to play comfortably.
     view.fit();
-    if (view.scale < 14 || this.fogOn) view.centerOn(this.pos);
+    if (view.scale < 10 || this.fogOn) view.centerOn(this.pos);
     view.requestDraw();
+    if (this.timerOnStart) this._startTimer();
     this._tick();
   }
 
@@ -88,6 +91,7 @@ export class Game {
     if (!this.active || this.finished) return;
     this.finished = true;
     this.gaveUp = true;
+    this.elapsed = this._now();
     this._stopTimer();
     this.view.showSolution = true;
     this.view.fog = null;
@@ -103,6 +107,11 @@ export class Game {
     this.onTick?.({ time: this.finished ? this.elapsed : this._now(), moves: this.moves, finished: this.finished, gaveUp: this.gaveUp });
   }
 
+  _startTimer() {
+    this.t0 = performance.now();
+    this._timer = setInterval(() => this._tick(), 100);
+  }
+
   _stopTimer() {
     if (this._timer) clearInterval(this._timer);
     this._timer = null;
@@ -114,10 +123,7 @@ export class Game {
     const g = this.maze.grid;
     const s = g.slotTo(this.pos, nb);
     if (s < 0 || !g.linked(this.pos, s)) return false;
-    if (this.t0 === null) {
-      this.t0 = performance.now();
-      this._timer = setInterval(() => this._tick(), 100);
-    }
+    if (this.t0 === null) this._startTimer();
     this.lastDir = [g.cx[nb] - g.cx[this.pos], g.cy[nb] - g.cy[this.pos]];
     const k = this.trailIndex[nb];
     if (k >= 0) {

@@ -29,6 +29,7 @@
       <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M10 3h19v19M22 29H3V10M10 10v9h8M16 10h6v6M10 25h0M22 22v7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square"/></svg>
       <span>Maze Generator</span>
     </a>
+    <span class="challenge-badge challenge-only">Challenge</span>
     <div class="topbar-actions">
       <button type="button" class="icon-btn" id="theme-toggle" aria-label="Switch light/dark theme" title="Switch light/dark theme">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
@@ -167,9 +168,17 @@
               <button type="button" data-download="png-solution">Solution (PNG)</button>
             </div>
           </div>
-          <button type="button" class="btn" id="share-btn">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Share link
-          </button>
+          <div class="menu">
+            <button type="button" class="btn" id="share-btn" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Share
+            </button>
+            <div class="menu-list share-menu" id="share-menu" hidden>
+              <button type="button" data-share="maze">Copy link to this maze<small>Opens the full site with these settings</small></button>
+              <button type="button" data-share="play">Copy play-only link<small>Just the maze and a timer; players can give up to see the solution</small></button>
+              <button type="button" data-share="challenge">Copy challenge link<small>Play only, and no giving up</small></button>
+              <label class="check menu-check"><input type="checkbox" id="share-hide" checked> Hide maze settings in play-only and challenge links</label>
+            </div>
+          </div>
         </div>
         <div class="tool-group" id="play-tools" hidden>
           <div class="hud" aria-live="polite">
@@ -194,6 +203,14 @@
 
       <div class="canvas-wrap" id="canvas-wrap">
         <canvas id="maze-canvas" aria-label="Maze. In play mode, use the arrow keys or WASD to move, or drag from your marker." tabindex="0"></canvas>
+        <div class="overlay challenge-start" id="challenge-start" hidden>
+          <div class="challenge-card">
+            <h2>Maze challenge</h2>
+            <p>Get from the <span class="dot start"></span> green dot to the <span class="dot end"></span> red square as fast as you can. The maze appears and the timer starts when you press Start.</p>
+            <p class="hint" id="challenge-info"></p>
+            <button type="button" class="btn accent big" id="challenge-go">Start</button>
+          </div>
+        </div>
         <div class="overlay" id="busy" hidden><div class="busy-card"><div class="spinner"></div><span id="busy-text">Generating…</span></div></div>
         <p class="play-help" id="play-help" hidden>Arrow keys / WASD to move (Q E Z C for diagonals) · or drag from the amber dot · scroll or pinch to zoom</p>
       </div>
@@ -251,8 +268,10 @@
       <dl class="win-stats" id="win-stats"></dl>
       <div class="dialog-actions">
         <button type="submit" value="close" class="btn">Close</button>
+        <button type="submit" value="own" class="btn challenge-only">Make your own maze</button>
         <button type="submit" value="again" class="btn">Play again</button>
-        <button type="submit" value="new" class="btn primary">New maze</button>
+        <button type="submit" value="copy" class="btn primary challenge-only">Copy result</button>
+        <button type="submit" value="new" class="btn primary normal-only">New maze</button>
       </div>
     </form>
   </dialog>

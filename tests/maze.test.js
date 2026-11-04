@@ -203,3 +203,21 @@ test('SVG output splits walls into several paths so huge mazes still render', as
   }
   assert.ok(segments > BATCH);
 });
+
+test('scrambled share links round-trip and reject tampering', async () => {
+  const { encodeShare, decodeShare, shareModeOf } = await import('../js/share-code.js');
+  const q = 'ct=square&o=ring&w=1000&h=1000&d=10&a=wilson&p=auto&op=1&eo=1&seed=y9svrw&share=2';
+  const code = encodeShare(q);
+  assert.match(code, /^[A-Za-z0-9_-]+$/, 'URL-safe');
+  assert.ok(!code.includes('wilson') && !code.includes('seed'), 'settings not readable');
+  assert.equal(decodeShare(code), q);
+  assert.notEqual(encodeShare(q, 1), encodeShare(q, 2), 'salt changes the code');
+  const flipped = code.slice(0, 10) + (code[10] === 'A' ? 'B' : 'A') + code.slice(11);
+  assert.equal(decodeShare(flipped), null, 'edited code is rejected');
+  assert.equal(decodeShare(code.slice(0, -4)), null, 'truncated code is rejected');
+  assert.equal(decodeShare('not a code!'), null);
+  assert.equal(shareModeOf(new URLSearchParams('share=true')), 'play');
+  assert.equal(shareModeOf(new URLSearchParams('share=1')), 'play');
+  assert.equal(shareModeOf(new URLSearchParams('share=2')), 'challenge');
+  assert.equal(shareModeOf(new URLSearchParams('seed=x')), null);
+});

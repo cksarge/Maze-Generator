@@ -6,8 +6,32 @@ import { randomSeed } from './rng.js';
 import { Settings, CONFIRM_CELLS, formatBytes } from './ui/settings.js';
 import { Game, formatTime } from './play.js';
 import { PAPERS, printLayout, printMaze } from './print.js';
+import { encodeShare, decodeShare, shareModeOf } from './share-code.js';
 
 const $ = (id) => document.getElementById(id);
+
+// ---------- Link parsing and share modes ----------
+// Links may be plain (?ct=...&seed=...) or scrambled (?c=...). share=1 / share=true opens a
+// play-only page; share=2 opens a challenge (play only, no giving up).
+function readLink() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('c')) return { params: q, broken: false };
+  const decoded = decodeShare(q.get('c'));
+  return decoded === null ? { params: new URLSearchParams(), broken: true } : { params: new URLSearchParams(decoded), broken: false };
+}
+const link = readLink();
+const shareMode = shareModeOf(link.params);
+if (shareMode) {
+  document.body.classList.add('challenge');
+  if (shareMode === 'challenge') document.body.classList.add('no-giveup');
+  document.querySelector('.challenge-badge').textContent = shareMode === 'challenge' ? 'Challenge' : 'Play only';
+  $('challenge-start').hidden = false;
+  $('challenge-go').disabled = true;
+  $('challenge-go').textContent = 'Loading maze…';
+  $('challenge-info').textContent = shareMode === 'challenge'
+    ? "There's no giving up in a challenge, so you can't see the solution."
+    : 'Stuck? You can give up at any time to see the solution.';
+}
 
 const state = {
   maze: null,
@@ -115,6 +139,7 @@ function setBusy(on, text = 'Generating…') {
 function setProgress(p) {
   $('progress-bar').value = p;
   $('busy-text').textContent = `Generating… ${Math.round(p * 100)}%`;
+  if (shareMode && $('challenge-go').disabled) $('challenge-go').textContent = `Loading maze… ${Math.round(p * 100)}%`;
 }
 
 function confirmDialog(text) {
@@ -140,7 +165,7 @@ async function generate({ newSeed = true } = {}) {
     return;
   }
   const { cells, bytes } = settings.estimate();
-  if (cells > CONFIRM_CELLS) {
+  if (cells > CONFIRM_CELLS && !shareMode) {
     const ok = await confirmDialog(
       `This maze has about ${cells.toLocaleString()} cells and needs roughly ${formatBytes(bytes)} of memory. ` +
       'It could take a while, and on some devices the tab may freeze or crash.',
@@ -160,7 +185,11 @@ async function generate({ newSeed = true } = {}) {
     $('solution-btn').setAttribute('aria-pressed', 'false');
     view.setMaze(maze);
     renderStats(maze);
-    if (params.outline !== 'image') history.replaceState(null, '', `?${settings.toQuery(params)}`);
+    if (shareMode) {
+      $('challenge-go').disabled = false;
+      $('challenge-go').textContent = 'Start';
+      $('challenge-go').focus();
+    } else if (params.outline !== 'image') history.replaceState(null, '', `?${settings.toQuery(params)}`);
     else history.replaceState(null, '', location.pathname);
   } catch (err) {
     if (err.message !== 'cancelled') toast(err.message || String(err), 6000);
@@ -205,7 +234,7 @@ function enterPlay() {
   setTimeout(() => {
     $('play-help').hidden = true;
   }, 7000);
-  game.start(state.maze, { fog: $('fog-toggle').checked, fogRadius: Number($('fog-radius').value) });
+  game.start(state.maze, { fog: $('fog-toggle').checked, fogRadius: Number($('fog-radius').value), timerOnStart: !!shareMode });
   $('maze-canvas').focus({ preventScroll: true });
 }
 
@@ -227,6 +256,7 @@ function bestKey(maze) {
 }
 
 function showWin({ time, moves, optimal }) {
+  state.lastWin = { time, moves };
   const key = bestKey(state.maze);
   let best = null;
   let newBest = false;
@@ -267,6 +297,11 @@ $('win-dialog').addEventListener('close', () => {
   const v = $('win-dialog').returnValue;
   if (v === 'again') game.restart();
   else if (v === 'new') generate().then(() => state.maze && enterPlay());
+  else if (v === 'own') location.href = location.pathname;
+  else if (v === 'copy' && state.lastWin) {
+    const { time, moves } = state.lastWin;
+    copyText(`I solved this maze in ${formatTime(time)} (${moves.toLocaleString()} moves). Can you beat that? ${location.href}`, 'Result copied. Paste it anywhere to challenge a friend.');
+  }
 });
 
 // ---------- Printing ----------
@@ -432,24 +467,54 @@ $('solution-btn').addEventListener('click', () => {
   view.requestDraw();
 });
 $('print-btn').addEventListener('click', openPrint);
-$('share-btn').addEventListener('click', async () => {
-  if (!state.maze) return;
-  if (state.maze.params.outline === 'image') {
+async function copyText(text, message) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(message, 4000);
+  } catch {
+    prompt('Copy this:', text);
+  }
+}
+
+function shareLink(kind) {
+  const maze = state.maze;
+  if (!maze) return;
+  if (maze.params.outline === 'image') {
     toast("Mazes made from an uploaded image can't be shared as a link. Download or print them instead.", 5000);
     return;
   }
-  const url = `${location.origin}${location.pathname}?${settings.toQuery(state.maze.params)}`;
-  try {
-    await navigator.clipboard.writeText(url);
-    toast('Link copied. Anyone who opens it gets this exact maze.');
-  } catch {
-    prompt('Copy this link:', url);
+  const base = `${location.origin}${location.pathname}`;
+  let query = settings.toQuery(maze.params);
+  if (kind === 'maze') {
+    copyText(`${base}?${query}`, 'Link copied. Anyone who opens it gets this exact maze.');
+    return;
   }
+  query += `&share=${kind === 'challenge' ? 2 : 1}`;
+  if ($('fog-toggle').checked) query += `&fog=1&fr=${$('fog-radius').value}`;
+  const url = $('share-hide').checked ? `${base}?c=${encodeShare(query)}` : `${base}?${query}`;
+  const what = kind === 'challenge' ? 'Challenge link copied (no giving up)' : 'Play-only link copied';
+  copyText(url, `${what}${$('fog-toggle').checked ? ', with fog' : ''}.`);
+}
+
+const shareMenu = $('share-menu');
+$('share-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('download-menu').hidden = true;
+  shareMenu.hidden = !shareMenu.hidden;
+  $('share-btn').setAttribute('aria-expanded', String(!shareMenu.hidden));
+});
+shareMenu.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const kind = e.target.closest('button')?.dataset.share;
+  if (!kind) return;
+  shareMenu.hidden = true;
+  shareLink(kind);
 });
 
 const menu = $('download-menu');
 $('download-btn').addEventListener('click', (e) => {
   e.stopPropagation();
+  shareMenu.hidden = true;
   menu.hidden = !menu.hidden;
   $('download-btn').setAttribute('aria-expanded', String(!menu.hidden));
 });
@@ -461,6 +526,7 @@ menu.addEventListener('click', (e) => {
 });
 document.addEventListener('click', () => {
   menu.hidden = true;
+  shareMenu.hidden = true;
 });
 
 $('zoom-in').addEventListener('click', () => view.zoomAt(1.4));
@@ -479,7 +545,24 @@ $('theme-toggle').addEventListener('click', () => {
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => view.refreshColors());
 
 // ---------- Start ----------
-const fromUrl = Settings.fromQuery(location.search);
+$('challenge-go').addEventListener('click', () => {
+  if (!state.maze) return;
+  $('challenge-start').hidden = true;
+  enterPlay();
+});
+
+if (link.params.get('fog') === '1') {
+  $('fog-toggle').checked = true;
+  $('fog-radius-wrap').hidden = false;
+  const fr = Number(link.params.get('fr'));
+  if (fr >= 2 && fr <= 15) $('fog-radius').value = fr;
+}
+if (link.broken) {
+  document.body.classList.remove('challenge', 'no-giveup');
+  $('challenge-start').hidden = true;
+  toast("That maze link is broken or incomplete, so here's a new maze instead.", 6000);
+}
+const fromUrl = link.broken ? null : Settings.fromQuery(`?${link.params}`);
 if (fromUrl) {
   settings.write(fromUrl);
   document.getElementById('seed-keep').checked = false;

@@ -20,6 +20,11 @@ Generate, print and play mazes in your browser at **https://mazegenerator.carter
   or by dragging with a mouse or finger. Optional fog of war. Best times are saved in your browser.
 - **Share and download**: every maze comes from a seed, so a share link recreates the exact same maze.
   Download as SVG or PNG.
+- **Play-only and challenge links**: the Share menu can copy a link that opens just the maze and a
+  timer, with no settings, stats or solution tools. `share=1` lets players give up to see the
+  solution; `share=2` (challenge) doesn't. The maze stays hidden and the timer starts when the player
+  presses Start. These links can be scrambled into a single `?c=` code so the settings can't be read
+  from the address bar. Since the site has no server this is obfuscation, not real encryption.
 
 ## Running locally
 
