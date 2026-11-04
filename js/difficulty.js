@@ -8,10 +8,11 @@ export function clampDifficulty(d) {
   return Math.min(10, Math.max(1, Math.round(Number(d) || 5)));
 }
 
-export function difficultyParams(d, cellType) {
+export function difficultyParams(d, cellType, edgeOnly = true) {
   d = clampDifficulty(d);
   let placement;
-  if (cellType === 'polar') placement = d <= 7 ? 'center' : 'farthest';
+  if (edgeOnly) placement = d <= 4 ? 'corners' : 'edges';
+  else if (cellType === 'polar') placement = d <= 7 ? 'center' : 'farthest';
   else placement = d <= 4 ? 'corners' : d <= 7 ? 'edges' : 'farthest';
   return {
     // Fraction of dead ends opened up into loops (more ways through = easier).

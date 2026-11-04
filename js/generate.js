@@ -13,14 +13,15 @@ export function runGeneration(params, image, progress = () => {}) {
   const rng = new Rng(`${params.seed}|${params.algo}|${params.difficulty}`);
   let algo = getAlgorithm(params.algo);
   if (algo.rectOnly && !isPlainRect(params)) algo = getAlgorithm('growing-tree');
-  const diff = difficultyParams(params.difficulty, params.cellType);
+  const edgeOnly = params.edgeOnly !== false;
+  const diff = difficultyParams(params.difficulty, params.cellType, edgeOnly);
 
   algo.fn(grid, rng, { bias: diff.bias }, (f) => progress(f * 0.85));
   progress(0.86);
   braid(grid, rng, diff.braid);
 
   const mode = params.placement === 'auto' || !params.placement ? diff.placement : params.placement;
-  const { start, end } = placeEnds(grid, mode, rng);
+  const { start, end } = placeEnds(grid, mode, rng, edgeOnly);
   progress(0.93);
   const solution = solve(grid, start, end);
   const openStart = params.openings ? openingEdge(grid, start) : -1;

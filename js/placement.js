@@ -1,23 +1,19 @@
 import { bfs } from './solver.js';
 
 // Chooses start and finish cells.
-//   corners  - boundary cells nearest the top-left and bottom-right
-//   edges    - the two boundary cells farthest apart along the maze's paths
+//   corners  - outside-edge cells nearest the top-left and bottom-right
+//   edges    - the two outside-edge cells farthest apart along the maze's paths
 //   farthest - the two cells farthest apart anywhere (longest possible solution)
 //   center   - start at the middle, finish on the edge farthest from it
 //   random   - any two different cells
-export function placeEnds(g, mode, rng) {
+// With edgeOnly, both ends are always on the outside edge: "farthest" and "center" become
+// "edges", and "random" picks from outside-edge cells.
+export function placeEnds(g, mode, rng, edgeOnly = false) {
   const { cells, count, cx, cy } = g;
-  const boundary = new Uint8Array(g.n);
-  let anyBoundary = false;
-  for (let j = 0; j < count; j++) {
-    const c = cells[j];
-    if (g.isBoundary(c)) {
-      boundary[c] = 1;
-      anyBoundary = true;
-    }
-  }
-  const pool = (c) => !anyBoundary || boundary[c];
+  let anyOuter = false;
+  for (let j = 0; j < count && !anyOuter; j++) anyOuter = g.isOuter(cells[j]);
+  const pool = (c) => !anyOuter || g.isOuter(c);
+  if (edgeOnly && (mode === 'farthest' || mode === 'center')) mode = 'edges';
   const farthestIn = (dist, filter) => {
     let best = -1;
     let bd = -1;
@@ -75,8 +71,13 @@ export function placeEnds(g, mode, rng) {
       break;
     }
     case 'random': {
-      start = cells[rng.int(count)];
-      do end = cells[rng.int(count)];
+      let options = cells;
+      if (edgeOnly && anyOuter) {
+        options = cells.filter((c) => g.isOuter(c));
+        if (options.length < 2) options = cells;
+      }
+      start = options[rng.int(options.length)];
+      do end = options[rng.int(options.length)];
       while (end === start);
       break;
     }
@@ -91,8 +92,9 @@ export function placeEnds(g, mode, rng) {
   return { start, end };
 }
 
-// For a boundary cell, the index (in grid.edges) of the outer wall facing most directly
-// away from the maze's center, so it can be left open as an entrance/exit. -1 if none.
+// For a cell on the outside edge, the index (in grid.edges) of the outer wall facing most
+// directly away from the maze's center, so it can be left open as an entrance/exit.
+// -1 if the cell has no outside wall.
 export function openingEdge(g, cell) {
   const es = g.edges(cell);
   const b = g.bounds;
@@ -101,7 +103,7 @@ export function openingEdge(g, cell) {
   let best = -1;
   let bd = -1;
   es.forEach((e, k) => {
-    if (e.s >= 0 && g.nbr[cell * g.D + e.s] >= 0) return;
+    if (!g.isOuterEdge(cell, e)) return;
     let ex = (e.x1 + e.x2) / 2;
     let ey = (e.y1 + e.y2) / 2;
     if (e.arc) {

@@ -61,10 +61,14 @@ export class Grid {
     return c;
   }
 
-  isBoundary(i) {
-    const es = this.edges(i);
-    for (const e of es) if (e.s < 0 || this.nbr[i * this.D + e.s] < 0) return true;
-    return false;
+  // True when the cell has a wall on the outside of the whole shape (not just next to a hole).
+  isOuter(i) {
+    return this.outer[i] !== 0;
+  }
+
+  // True when edge e of cell i faces the outside of the shape.
+  isOuterEdge(i, e) {
+    return e.s < 0 || ((this.outer[i] >> e.s) & 1) === 1;
   }
 
   linkAll() {
@@ -82,6 +86,8 @@ export class Grid {
   // the largest connected region so every remaining cell is reachable.
   finalize(activeTest) {
     const { n, D, nbr, active } = this;
+    // Neighbors before masking, used afterwards to tell outside walls from walls next to holes.
+    const orig = activeTest ? nbr.slice() : nbr;
     if (activeTest) for (let i = 0; i < n; i++) active[i] = activeTest(i) ? 1 : 0;
     this._cutInactive();
 
@@ -122,7 +128,54 @@ export class Grid {
     let k = 0;
     for (let i = 0; i < n; i++) if (active[i]) this.cells[k++] = i;
     if (this.count < 2) throw new Error('That shape leaves fewer than 2 cells. Try a larger size or a different shape.');
+    this._computeOuter(orig);
     return this;
+  }
+
+  // outer[i] has bit s set when slot s of cell i faces outside the shape, and bit 8 set when
+  // the cell has an edge with no slot (always on the outside, e.g. a circle's rim). Masked-out
+  // cells count as outside only when they connect to the edge of the full grid, so walls
+  // around enclosed holes are not "outer".
+  _computeOuter(orig) {
+    const { n, D, active, cells, count } = this;
+    const outer = new Uint16Array(n);
+    const outside = new Uint8Array(n);
+    if (orig !== this.nbr) {
+      const queue = new Int32Array(n);
+      let tail = 0;
+      for (let i = 0; i < n; i++) {
+        if (active[i]) continue;
+        for (const e of this.edges(i)) {
+          if (e.s < 0 || orig[i * D + e.s] < 0) {
+            outside[i] = 1;
+            queue[tail++] = i;
+            break;
+          }
+        }
+      }
+      let head = 0;
+      while (head < tail) {
+        const c = queue[head++];
+        for (let s = 0; s < D; s++) {
+          const nb = orig[c * D + s];
+          if (nb >= 0 && !active[nb] && !outside[nb]) {
+            outside[nb] = 1;
+            queue[tail++] = nb;
+          }
+        }
+      }
+    }
+    for (let j = 0; j < count; j++) {
+      const i = cells[j];
+      for (const e of this.edges(i)) {
+        if (e.s < 0) outer[i] |= 256;
+        else {
+          const nb = orig[i * D + e.s];
+          if (nb < 0 || outside[nb]) outer[i] |= 1 << e.s;
+        }
+      }
+    }
+    this.outer = outer;
   }
 
   _cutInactive() {

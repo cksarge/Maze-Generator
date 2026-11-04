@@ -70,7 +70,7 @@ export class Settings {
       if (this.outline.value !== 'rect' && this.outline.value !== 'natural' && this.outline.value !== 'image') this._squareUp();
       this.refresh();
     });
-    for (const id of ['w', 'h', 'size', 'rings', 'algo', 'placement']) $(id).addEventListener('input', () => this.refresh());
+    for (const id of ['w', 'h', 'size', 'rings', 'algo', 'placement', 'edge-only']) $(id).addEventListener('input', () => this.refresh());
     $('difficulty').addEventListener('input', () => {
       $('difficulty-num').value = $('difficulty').value;
       this.refresh();
@@ -166,6 +166,7 @@ export class Settings {
       algo: this.algo.value,
       placement: $('placement').value,
       openings: $('openings').checked,
+      edgeOnly: $('edge-only').checked,
       seed: $('seed').value.trim(),
     };
     if (ct === 'polar') p.rings = int('rings', 'Rings');
@@ -193,6 +194,7 @@ export class Settings {
     if (p.algo && ALGORITHMS.some((a) => a.id === p.algo)) this.algo.value = p.algo;
     if (p.placement) $('placement').value = p.placement;
     if (p.openings !== undefined) $('openings').checked = p.openings;
+    if (p.edgeOnly !== undefined) $('edge-only').checked = p.edgeOnly;
     if (p.seed) $('seed').value = p.seed;
     this.refresh();
   }
@@ -227,6 +229,12 @@ export class Settings {
       opt.textContent = a.rectOnly && !plain ? `${a.name} (rectangle of squares only)` : a.name;
     }
     if (this.algo.selectedOptions[0]?.disabled) this.algo.value = 'growing-tree';
+
+    // Placements that can put an end inside the maze are unavailable when ends must be on the edge.
+    const edgeOnly = $('edge-only').checked;
+    const placement = $('placement');
+    for (const opt of placement.options) opt.disabled = edgeOnly && (opt.value === 'center' || opt.value === 'farthest');
+    if (placement.selectedOptions[0]?.disabled) placement.value = 'edges';
     $('algo-desc').textContent = getAlgorithm(this.algo.value).desc;
 
     this._sizeInfo();
@@ -274,6 +282,7 @@ export class Settings {
     q.set('a', p.algo);
     q.set('p', p.placement);
     q.set('op', p.openings ? 1 : 0);
+    q.set('eo', p.edgeOnly ? 1 : 0);
     q.set('seed', p.seed);
     return q.toString();
   }
@@ -293,6 +302,7 @@ export class Settings {
       algo: q.get('a') || undefined,
       placement: q.get('p') || undefined,
       openings: q.has('op') ? q.get('op') === '1' : undefined,
+      edgeOnly: q.has('eo') ? q.get('eo') === '1' : undefined,
       seed: q.get('seed'),
     };
   }

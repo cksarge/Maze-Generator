@@ -144,3 +144,46 @@ test('large maze generates in reasonable time', () => {
   assert.equal(r.stats.cells, 1e6);
   assert.ok(Date.now() - t < 15000, `took ${Date.now() - t}ms`);
 });
+
+test('with edgeOnly, start and finish are always on the outside edge with an opening', () => {
+  const shapes = [...SHAPES, { cellType: 'square', outline: 'ring', w: 40, h: 40 }, { cellType: 'hex', outline: 'ring', w: 40, h: 35 }];
+  for (const shape of shapes) {
+    for (let d = 1; d <= 10; d++) {
+      for (const placement of ['auto', 'corners', 'edges', 'farthest', 'center', 'random']) {
+        const p = { ...shape, algo: 'wilson', difficulty: d, seed: `e${d}${placement}`, placement, openings: true, edgeOnly: true };
+        const r = runGeneration(p);
+        const g = buildGrid(p);
+        assert.ok(g.isOuter(r.start) && g.isOuter(r.end), `${shape.cellType}/${shape.outline} d${d} ${placement}`);
+        assert.ok(r.openStart >= 0 && r.openEnd >= 0, 'both ends should get an opening');
+      }
+    }
+  }
+});
+
+test('edgeOnly is the default and can be turned off', () => {
+  const base = { cellType: 'square', outline: 'rect', w: 30, h: 30, algo: 'wilson', difficulty: 10, seed: 'inside', placement: 'farthest', openings: true };
+  const g = buildGrid(base);
+  const def = runGeneration(base);
+  assert.ok(g.isOuter(def.start) && g.isOuter(def.end));
+  let interior = false;
+  for (let k = 0; k < 20 && !interior; k++) {
+    const r = runGeneration({ ...base, seed: `inside${k}`, edgeOnly: false });
+    interior = !g.isOuter(r.start) || !g.isOuter(r.end);
+  }
+  assert.ok(interior, 'with edgeOnly off, farthest placement can use interior cells');
+});
+
+test('walls around an enclosed hole do not count as the outside edge', () => {
+  const g = buildGrid({ cellType: 'square', outline: 'ring', w: 40, h: 40 });
+  let nearest = -1;
+  let bd = Infinity;
+  for (const c of g.cells) {
+    const d = (g.cx[c] - 20) ** 2 + (g.cy[c] - 20) ** 2;
+    if (d < bd) {
+      bd = d;
+      nearest = c;
+    }
+  }
+  assert.ok(!g.isOuter(nearest), 'cell on the inner rim of the ring should not be outer');
+  assert.ok(g.isOuter(g.cells[0]), 'top-most cell is on the outside');
+});
