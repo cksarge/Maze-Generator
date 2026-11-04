@@ -1,0 +1,10 @@
+{
+  "name": "maze-generator",
+  "private": true,
+  "description": "Maze Generator: generate, print and play mazes in the browser.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8080"
+  }
+}

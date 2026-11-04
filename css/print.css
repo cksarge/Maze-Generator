@@ -1,0 +1,38 @@
+/* Only the generated print pages are printed. The @page size is injected by js/print.js. */
+@media print {
+  html, body { height: auto; background: #fff !important; color: #000 !important; display: block; }
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block !important; }
+
+  .print-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color: #000;
+  }
+  .print-page:last-child { break-after: auto; page-break-after: auto; }
+
+  .pp-header {
+    width: 100%;
+    height: 16mm;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6mm;
+  }
+  .pp-header h1 { margin: 0; font-size: 16pt; font-weight: 700; }
+  .pp-header h1 span { font-weight: 400; font-size: 12pt; color: #555; }
+  .pp-name { font-size: 11pt; margin-left: auto; white-space: nowrap; }
+  .pp-name span { display: inline-block; width: 42mm; border-bottom: 0.3mm solid #000; margin: 0 4mm 0 1mm; }
+  .pp-name span:last-child { margin-right: 0; }
+
+  .pp-maze { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+  .pp-maze svg { display: block; }
+
+  .pp-footer { flex: none; height: 6mm; display: flex; align-items: flex-end; font-size: 7.5pt; color: #777; }
+}

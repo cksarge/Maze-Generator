@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maze Generator</title>
+  <meta name="description" content="Generate mazes of any size and shape (square, hexagonal, triangular, circular or your own image), print them with or without the solution, or play them in your browser against the clock.">
+  <link rel="canonical" href="https://mazegenerator.carterscoding.com/">
+  <meta property="og:title" content="Maze Generator">
+  <meta property="og:description" content="Generate, print and play mazes of any size and shape.">
+  <meta property="og:url" content="https://mazegenerator.carterscoding.com/">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#11151c" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/print.css">
+  <script>
+    try {
+      const t = localStorage.getItem('maze-theme');
+      if (t) document.documentElement.dataset.theme = t;
+    } catch {}
+  </script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M10 3h19v19M22 29H3V10M10 10v9h8M16 10h6v6M10 25h0M22 22v7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square"/></svg>
+      <span>Maze Generator</span>
+    </a>
+    <div class="topbar-actions">
+      <button type="button" class="icon-btn" id="theme-toggle" aria-label="Switch light/dark theme" title="Switch light/dark theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
+      </button>
+      <a class="icon-btn" href="https://github.com/cksarge/Maze-Generator" target="_blank" rel="noopener" aria-label="Source code on GitHub" title="Source code on GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
+      </a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" id="settings" aria-label="Maze settings">
+      <form id="settings-form" autocomplete="off">
+        <section class="group">
+          <h2>Cell shape</h2>
+          <div class="segmented" role="radiogroup" aria-label="Cell shape">
+            <label><input type="radio" name="cellType" value="square" checked><span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/></svg>Square</span></label>
+            <label><input type="radio" name="cellType" value="hex"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10l5 8-5 8H7l-5-8z"/></svg>Hexagon</span></label>
+            <label><input type="radio" name="cellType" value="tri"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2z"/></svg>Triangle</span></label>
+            <label><input type="radio" name="cellType" value="polar"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></svg>Circular</span></label>
+          </div>
+          <label class="field" id="outline-field">
+            <span>Overall shape</span>
+            <select id="outline"></select>
+          </label>
+          <div id="image-section" class="image-section" hidden>
+            <label class="file-drop">
+              <input type="file" id="image-file" accept="image/*">
+              <span id="image-file-label">Choose an image… <small>Dark areas become the maze</small></span>
+            </label>
+            <div class="image-preview-wrap">
+              <canvas id="image-preview" width="160" height="120" aria-label="Shape preview"></canvas>
+            </div>
+            <label class="field">
+              <span>Threshold <output id="threshold-out">50%</output></span>
+              <input type="range" id="threshold" min="5" max="95" value="50">
+            </label>
+            <label class="check"><input type="checkbox" id="invert"> Invert (use light areas)</label>
+            <button type="button" class="btn small" id="match-aspect">Match image proportions</button>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>Size</h2>
+          <div class="row" id="wh-fields">
+            <label class="field"><span>Width</span><input type="number" id="w" min="2" step="1" value="20" inputmode="numeric"></label>
+            <span class="times">×</span>
+            <label class="field"><span>Height</span><input type="number" id="h" min="2" step="1" value="20" inputmode="numeric"></label>
+          </div>
+          <label class="field" id="size-field" hidden><span id="size-label">Cells per side</span><input type="number" id="size" min="2" step="1" value="10" inputmode="numeric"></label>
+          <label class="field" id="rings-field" hidden><span>Rings</span><input type="number" id="rings" min="2" step="1" value="12" inputmode="numeric"></label>
+          <div class="presets" id="size-presets" role="group" aria-label="Size presets">
+            <button type="button" data-preset="xs">Tiny</button>
+            <button type="button" data-preset="s">Small</button>
+            <button type="button" data-preset="m">Medium</button>
+            <button type="button" data-preset="l">Large</button>
+            <button type="button" data-preset="xl">Huge</button>
+          </div>
+          <p class="hint" id="size-info"></p>
+          <p class="warning" id="size-warning" hidden></p>
+        </section>
+
+        <section class="group">
+          <h2>Difficulty</h2>
+          <div class="row difficulty-row">
+            <input type="range" id="difficulty" min="1" max="10" value="5" aria-label="Difficulty">
+            <input type="number" id="difficulty-num" min="1" max="10" value="5" aria-label="Difficulty (1–10)">
+          </div>
+          <p class="hint"><strong id="difficulty-label">Medium</strong>. Harder mazes have fewer loops, longer dead ends and the start and finish farther apart.</p>
+        </section>
+
+        <section class="group">
+          <h2>Algorithm</h2>
+          <label class="field"><span class="sr-only">Generation algorithm</span><select id="algo"></select></label>
+          <p class="hint" id="algo-desc"></p>
+        </section>
+
+        <section class="group">
+          <h2>Start &amp; finish</h2>
+          <label class="field">
+            <span class="sr-only">Placement</span>
+            <select id="placement">
+              <option value="auto">Automatic (based on difficulty)</option>
+              <option value="corners">Opposite corners</option>
+              <option value="edges">Edges, as far apart as possible</option>
+              <option value="center">Center to edge</option>
+              <option value="farthest">Anywhere, as far apart as possible</option>
+              <option value="random">Random</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="openings" checked> Open the outer wall at the start and finish</label>
+        </section>
+
+        <section class="group">
+          <h2>Seed</h2>
+          <div class="row">
+            <label class="field grow"><span class="sr-only">Seed</span><input type="text" id="seed" spellcheck="false" maxlength="40"></label>
+            <button type="button" class="icon-btn" id="seed-random" title="New random seed" aria-label="New random seed">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/><circle cx="16" cy="16" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <label class="check"><input type="checkbox" id="seed-keep"> Keep this seed (same seed + settings = same maze)</label>
+        </section>
+
+        <div class="generate-bar">
+          <button type="submit" class="btn primary" id="generate">Generate maze</button>
+          <div class="progress" id="progress" hidden>
+            <progress id="progress-bar" max="1" value="0"></progress>
+            <button type="button" class="btn small" id="cancel">Cancel</button>
+          </div>
+        </div>
+      </form>
+    </aside>
+
+    <main class="stage">
+      <div class="toolbar" role="toolbar" aria-label="Maze actions">
+        <div class="tool-group" id="view-tools">
+          <button type="button" class="btn accent" id="play-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>Play
+          </button>
+          <button type="button" class="btn" id="solution-btn" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c4 0 4-12 9-12s5 12 9 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>Solution
+          </button>
+          <button type="button" class="btn" id="print-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Print
+          </button>
+          <div class="menu">
+            <button type="button" class="btn" id="download-btn" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Download
+            </button>
+            <div class="menu-list" id="download-menu" hidden>
+              <button type="button" data-download="svg">Maze (SVG)</button>
+              <button type="button" data-download="svg-solution">Solution (SVG)</button>
+              <button type="button" data-download="png">Maze (PNG)</button>
+              <button type="button" data-download="png-solution">Solution (PNG)</button>
+            </div>
+          </div>
+          <button type="button" class="btn" id="share-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Share link
+          </button>
+        </div>
+        <div class="tool-group" id="play-tools" hidden>
+          <div class="hud" aria-live="polite">
+            <span class="hud-item"><span class="hud-label">Time</span><span id="hud-time" class="mono">0:00.0</span></span>
+            <span class="hud-item"><span class="hud-label">Moves</span><span id="hud-moves" class="mono">0</span></span>
+          </div>
+          <label class="check compact"><input type="checkbox" id="fog-toggle"> Fog</label>
+          <label class="fog-radius" id="fog-radius-wrap" hidden>
+            <span class="sr-only">Visibility radius</span>
+            <input type="range" id="fog-radius" min="2" max="15" value="5" title="Visibility radius">
+          </label>
+          <button type="button" class="btn" id="restart-btn">Restart</button>
+          <button type="button" class="btn" id="giveup-btn">Show solution</button>
+          <button type="button" class="btn" id="exit-play-btn">Exit</button>
+        </div>
+        <div class="tool-group zoom">
+          <button type="button" class="icon-btn" id="zoom-out" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+          <button type="button" class="icon-btn" id="zoom-fit" aria-label="Fit to screen" title="Fit to screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+          <button type="button" class="icon-btn" id="zoom-in" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+        </div>
+      </div>
+
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="maze-canvas" aria-label="Maze. In play mode, use the arrow keys or WASD to move, or drag from your marker." tabindex="0"></canvas>
+        <div class="overlay" id="busy" hidden><div class="busy-card"><div class="spinner"></div><span id="busy-text">Generating…</span></div></div>
+        <p class="play-help" id="play-help" hidden>Arrow keys / WASD to move (Q E Z C for diagonals) · or drag from the amber dot · scroll or pinch to zoom</p>
+      </div>
+
+      <dl class="stats" id="stats"></dl>
+    </main>
+  </div>
+
+  <dialog id="print-dialog" class="dialog wide">
+    <form method="dialog" id="print-form">
+      <h2>Print maze</h2>
+      <div class="print-grid">
+        <div class="print-options">
+          <fieldset class="field">
+            <legend>Pages</legend>
+            <label class="check"><input type="radio" name="content" value="maze" checked> Maze only</label>
+            <label class="check"><input type="radio" name="content" value="solution"> Solution only</label>
+            <label class="check"><input type="radio" name="content" value="both"> Both (2 pages)</label>
+          </fieldset>
+          <label class="field"><span>Paper size</span><select id="paper"></select></label>
+          <label class="field"><span>Orientation</span>
+            <select id="orientation">
+              <option value="auto">Automatic</option>
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </label>
+          <label class="field"><span>Margins</span>
+            <select id="margin">
+              <option value="6">Narrow (6 mm)</option>
+              <option value="12" selected>Normal (12 mm)</option>
+              <option value="20">Wide (20 mm)</option>
+            </select>
+          </label>
+          <label class="field"><span>Title (optional)</span><input type="text" id="print-title" maxlength="80" placeholder="e.g. Maze #1"></label>
+          <label class="check"><input type="checkbox" id="print-name"> Add a name &amp; date line</label>
+        </div>
+        <div class="print-preview">
+          <div class="page-preview" id="page-preview"><canvas id="print-preview-canvas"></canvas></div>
+          <p class="hint" id="print-info"></p>
+          <p class="warning" id="print-warning" hidden></p>
+        </div>
+      </div>
+      <p class="hint">Tip: choose “Save as PDF” in your browser's print dialog to get a PDF file.</p>
+      <div class="dialog-actions">
+        <button type="submit" value="cancel" class="btn">Cancel</button>
+        <button type="submit" value="print" class="btn primary" id="do-print">Print…</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="win-dialog" class="dialog">
+    <form method="dialog">
+      <h2 id="win-title">You solved it!</h2>
+      <dl class="win-stats" id="win-stats"></dl>
+      <div class="dialog-actions">
+        <button type="submit" value="close" class="btn">Close</button>
+        <button type="submit" value="again" class="btn">Play again</button>
+        <button type="submit" value="new" class="btn primary">New maze</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="dialog">
+    <form method="dialog">
+      <h2>That's a very large maze</h2>
+      <p id="confirm-text"></p>
+      <div class="dialog-actions">
+        <button type="submit" value="cancel" class="btn">Cancel</button>
+        <button type="submit" value="ok" class="btn danger">Generate anyway</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div id="print-root" aria-hidden="true"></div>
+</body>
+</html>
